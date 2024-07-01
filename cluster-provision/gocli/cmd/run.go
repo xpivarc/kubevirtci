@@ -576,7 +576,7 @@ func run(cmd *cobra.Command, args []string) (retErr error) {
 			return err
 		}
 
-		if err := configureNodes(fipsEnabled, prefix, nodeName); err != nil {
+		if err := configureNodes(fipsEnabled, prefix, nodeName, waitForVMToBeUp); err != nil {
 			return err
 		}
 
@@ -893,7 +893,7 @@ func prepareEtcdDataMount(node string, etcdDataDir string, mountSize string) err
 	return nil
 }
 
-func configureNodes(fipsEnabled bool, prefix, nodeName string) error {
+func configureNodes(fipsEnabled bool, prefix, nodeName string, waitForVMToBeUp func(string, string) error) error {
 	if fipsEnabled {
 		success, err := docker.Exec(cli, nodeContainer(prefix, nodeName), []string{
 			"/bin/bash", "-c", "ssh.sh sudo fips-mode-setup --enable && ( ssh.sh sudo reboot || true )",
