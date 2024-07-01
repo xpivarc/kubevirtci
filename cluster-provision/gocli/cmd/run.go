@@ -29,6 +29,8 @@ import (
 	"kubevirt.io/kubevirtci/cluster-provision/gocli/docker"
 	"kubevirt.io/kubevirtci/cluster-provision/gocli/images"
 
+	utils2 "kubevirt.io/kubevirtci/cluster-provision/gocli/utils/ssh"
+
 	"github.com/alessio/shellescape"
 )
 
@@ -576,7 +578,7 @@ func run(cmd *cobra.Command, args []string) (retErr error) {
 			return err
 		}
 
-		if err := configureNodes(fipsEnabled, prefix, nodeName, waitForVMToBeUp); err != nil {
+		if err := configureNodes(docker.NewDockerAdapter(cli, nodeName), fipsEnabled, prefix, nodeName, waitForVMToBeUp); err != nil {
 			return err
 		}
 
@@ -893,16 +895,11 @@ func prepareEtcdDataMount(node string, etcdDataDir string, mountSize string) err
 	return nil
 }
 
-func configureNodes(fipsEnabled bool, prefix, nodeName string, waitForVMToBeUp func(string, string) error) error {
+func configureNodes(client utils2.SSHClient, fipsEnabled bool, prefix, nodeName string, waitForVMToBeUp func(string, string) error) error {
 	if fipsEnabled {
-		success, err := docker.Exec(cli, nodeContainer(prefix, nodeName), []string{
-			"/bin/bash", "-c", "ssh.sh sudo fips-mode-setup --enable && ( ssh.sh sudo reboot || true )",
-		}, os.Stdout)
+		_, err := client.SSH("sudo fips-mode-setup --enable && ( ssh.sh sudo reboot || true )", true)
 		if err != nil {
 			return err
-		}
-		if !success {
-			return errors.New("failed to enable FIPS and/or reboot")
 		}
 		err = waitForVMToBeUp(prefix, nodeName)
 		if err != nil {
