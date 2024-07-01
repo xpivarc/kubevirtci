@@ -576,20 +576,8 @@ func run(cmd *cobra.Command, args []string) (retErr error) {
 			return err
 		}
 
-		if fipsEnabled {
-			success, err := docker.Exec(cli, nodeContainer(prefix, nodeName), []string{
-				"/bin/bash", "-c", "ssh.sh sudo fips-mode-setup --enable && ( ssh.sh sudo reboot || true )",
-			}, os.Stdout)
-			if err != nil {
-				return err
-			}
-			if !success {
-				return errors.New("failed to enable FIPS and/or reboot")
-			}
-			err = waitForVMToBeUp(prefix, nodeName)
-			if err != nil {
-				return err
-			}
+		if err := configureNodes(fipsEnabled, prefix, nodeName); err != nil {
+			return err
 		}
 
 		if dockerProxy != "" {
@@ -902,5 +890,24 @@ func prepareEtcdDataMount(node string, etcdDataDir string, mountSize string) err
 		return fmt.Errorf("verify that a mount for etcd data is exists on node %s failed: %v", node, err)
 	}
 
+	return nil
+}
+
+func configureNodes(fipsEnabled bool, prefix, nodeName string) error {
+	if fipsEnabled {
+		success, err := docker.Exec(cli, nodeContainer(prefix, nodeName), []string{
+			"/bin/bash", "-c", "ssh.sh sudo fips-mode-setup --enable && ( ssh.sh sudo reboot || true )",
+		}, os.Stdout)
+		if err != nil {
+			return err
+		}
+		if !success {
+			return errors.New("failed to enable FIPS and/or reboot")
+		}
+		err = waitForVMToBeUp(prefix, nodeName)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
